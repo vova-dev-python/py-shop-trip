@@ -1,74 +1,64 @@
-import json
-import os
 import math
-from app.models import Shop, Car
+import json
 from app.customer import Customer
+from app.models import Car, Shop
+
+
+def distance(loc1: list, loc2: list) -> float:
+    return math.sqrt((loc1[0] - loc2[0])**2 + (loc1[1] - loc2[1])**2)
 
 
 def shop_trip() -> None:
-    config_path = os.path.join(os.path.dirname(__file__), "config.json")
-    with open(config_path, "r") as file:
-        config = json.load(file)
+    with open("app/config.json", "r") as f:
+        config = json.load(f)
 
     fuel_price = config["FUEL_PRICE"]
-    shops = [
-        Shop(s["name"], s["location"], s["products"])
-        for s in config["shops"]
-    ]
+    shops = [Shop(**s_data) for s_data in config["shops"]]
 
     for c_data in config["customers"]:
-        car = Car(c_data["car"]["brand"], c_data["car"]["fuel_consumption"])
+        home_location = c_data["location"]
+
         customer = Customer(
-            c_data["name"],
-            c_data["product_cart"],
-            c_data["location"],
-            c_data["money"],
-            car
+            name=c_data["name"],
+            location=home_location,
+            car=Car(c_data["car"]["brand"], c_data["car"]["fuel_consumption"]),
+            money=c_data["money"],
+            cart=c_data["product_cart"]
         )
 
         print(f"{customer.name} has {customer.money} dollars")
 
         cheapest_shop = None
         min_total_cost = float("inf")
-        trips_info = []
+        best_products_cost = 0
 
         for shop in shops:
-            # Розрахунок дистанції з перенесенням рядків для E501
-            dist_to_shop = math.sqrt(
-                (shop.location[0] - customer.location[0]) ** 2
-                + (shop.location[1] - customer.location[1]) ** 2
-            )
+            dist = distance(home_location, shop.location)
+            fuel_cost = customer.car.get_trip_cost(dist * 2, fuel_price)
+            p_cost = shop.get_products_cost(customer.cart)
 
-            total_distance = dist_to_shop * 2
-            fuel_needed = total_distance * customer.car.fuel_consumption / 100
-            fuel_cost = fuel_needed * fuel_price
-            products_cost = shop.get_products_cost(customer.cart)
+            total_trip_cost = round(fuel_cost + p_cost, 2)
 
-            total_trip_cost = round(fuel_cost + products_cost, 2)
-
-            trips_info.append(
-                f"{customer.name}'s trip to the {shop.name} "
-                f"costs {total_trip_cost}"
-            )
+            print(f"{customer.name}'s trip to the {shop.name} "
+                  f"costs {total_trip_cost:g}")
 
             if total_trip_cost < min_total_cost:
                 min_total_cost = total_trip_cost
                 cheapest_shop = shop
-
-        for info in trips_info:
-            print(info)
+                best_products_cost = p_cost
 
         if cheapest_shop and customer.money >= min_total_cost:
-            print(f"{customer.name} rides to {cheapest_shop.name}")
+            print(f"{customer.name} rides to {cheapest_shop.name}\n")
 
-            p_cost = cheapest_shop.get_products_cost(customer.cart)
-            customer.print_receipt(cheapest_shop, p_cost)
+            customer.location = cheapest_shop.location
+            customer.money -= min_total_cost
+
+            customer.print_receipt(cheapest_shop, best_products_cost)
 
             print(f"\n{customer.name} rides home")
-            customer.money = round(customer.money - min_total_cost, 2)
-            print(f"{customer.name} now has {customer.money:g} dollars\n")
+            customer.location = home_location
+            print(f"{customer.name} now has {round(customer.money, 2):g} "
+                  f"dollars\n")
         else:
-            print(
-                f"{customer.name} doesn't have enough money "
-                "to make a purchase in any shop"
-            )
+            print(f"{customer.name} doesn't have enough money to make "
+                  f"a purchase in any shop")
