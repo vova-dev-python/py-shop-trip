@@ -1,11 +1,7 @@
-import math
 import json
 from app.customer import Customer
 from app.models import Car, Shop
-
-
-def distance(loc1: list, loc2: list) -> float:
-    return math.sqrt((loc1[0] - loc2[0])**2 + (loc1[1] - loc2[1])**2)
+from app.utils import distance  # Функція вже в utils.py
 
 
 def shop_trip() -> None:
@@ -26,7 +22,8 @@ def shop_trip() -> None:
             cart=c_data["product_cart"]
         )
 
-        print(f"{customer.name} has {customer.money} dollars")
+        # Тест хоче "55 dollars", а не "55.00", тому :g
+        print(f"{customer.name} has {customer.money:g} dollars")
 
         cheapest_shop = None
         min_total_cost = float("inf")
@@ -37,6 +34,7 @@ def shop_trip() -> None:
             fuel_cost = customer.car.get_trip_cost(dist * 2, fuel_price)
             p_cost = shop.get_products_cost(customer.cart)
 
+            # Округляємо до 2 знаків для логіки
             total_trip_cost = round(fuel_cost + p_cost, 2)
 
             print(f"{customer.name}'s trip to the {shop.name} "
@@ -57,6 +55,7 @@ def shop_trip() -> None:
 
             print(f"\n{customer.name} rides home")
             customer.location = home_location
+            # Для "Bob now has 26.79" формат :g теж спрацює ідеально
             print(f"{customer.name} now has {round(customer.money, 2):g} "
                   f"dollars\n")
         else:
